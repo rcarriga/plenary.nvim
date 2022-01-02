@@ -115,6 +115,12 @@ mod.format_results = function(res)
 end
 
 mod.describe = function(desc, func)
+  if #mod.filter > 0  then
+    if mod.filter[1] ~= desc then
+      return
+    end
+    table.remove(mod.filter, 1)
+  end
   results.pass = results.pass or {}
   results.fail = results.fail or {}
   results.errs = results.errs or {}
@@ -128,6 +134,13 @@ mod.describe = function(desc, func)
 end
 
 mod.inner_describe = function(desc, func)
+  if #mod.filter > 0  then
+    if mod.filter[1] ~= desc then
+      return
+    end
+    table.remove(mod.filter, 1)
+  end
+
   local ok, msg, desc_stack = call_inner(desc, func)
 
   if not ok then
@@ -170,6 +183,17 @@ local run_each = function(tbl)
 end
 
 mod.it = function(desc, func)
+  if #mod.filter > 0  then
+    if mod.filter[1] ~= desc then
+      return
+    end
+    -- If a test passes the final filter we don't want other tests running
+    if #mod.filter == 1 then
+      mod.filter = {0}
+    else
+      table.remove(mod.filter, 1)
+    end
+  end
   run_each(current_before_each)
   local ok, msg, desc_stack = call_inner(desc, func)
   run_each(current_after_each)
@@ -213,7 +237,10 @@ after_each = mod.after_each
 clear = mod.clear
 assert = require "luassert"
 
-mod.run = function(file)
+mod.filter = {}
+
+mod.run = function(file, opts)
+  mod.filter = opts.filter or {}
   print("\n" .. HEADER)
   print("Testing: ", file)
 
@@ -241,22 +268,21 @@ mod.run = function(file)
   end
 
   mod.format_results(results)
+  local exit = opts.exit or function (code)
+    if is_headless then
+      os.exit(code)
+    end
+
+  end
 
   if #results.fatal ~= 0 then
     print("We had an unexpected error: ", vim.inspect(results.fatal), vim.inspect(results))
-    if is_headless then
-      os.exit(2)
-    end
+    exit(2)
   elseif #results.fail > 0 then
     print "Tests Failed. Exit: 1"
-
-    if is_headless then
-      os.exit(1)
-    end
+    exit(1)
   else
-    if is_headless then
-      os.exit(0)
-    end
+    exit(0)
   end
 end
 
