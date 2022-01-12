@@ -69,17 +69,18 @@ end
 
 local call_inner = function(desc, func)
   local desc_stack = add_description(desc)
+  local trace
   add_new_each()
   local ok, msg = xpcall(func, function(msg)
     -- debug.traceback
     -- return vim.inspect(get_trace(nil, 3, msg))
-    local trace = get_trace(nil, 3, msg)
+    trace = get_trace(nil, 3, msg)
     return trace.message .. "\n" .. trace.traceback
   end)
   clear_last_each()
   pop_description()
 
-  return ok, msg, desc_stack
+  return ok, msg, desc_stack, trace
 end
 
 local color_table = {
@@ -128,12 +129,13 @@ mod.describe = function(desc, func)
 end
 
 mod.inner_describe = function(desc, func)
-  local ok, msg, desc_stack = call_inner(desc, func)
+  local ok, msg, desc_stack, trace = call_inner(desc, func)
 
   if not ok then
     table.insert(results.errs, {
       descriptions = desc_stack,
       msg = msg,
+      trace = trace,
     })
   end
 end
@@ -171,12 +173,13 @@ end
 
 mod.it = function(desc, func)
   run_each(current_before_each)
-  local ok, msg, desc_stack = call_inner(desc, func)
+  local ok, msg, desc_stack, trace = call_inner(desc, func)
   run_each(current_after_each)
 
   local test_result = {
     descriptions = desc_stack,
     msg = nil,
+    trace = trace,
   }
 
   -- TODO: We should figure out how to determine whether
